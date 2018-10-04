@@ -1,0 +1,7 @@
+*.html
+*.RData
+*.pdf
+mnist/
+plots/
+.DS_Store
+Icon*

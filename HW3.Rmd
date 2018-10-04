@@ -1,0 +1,409 @@
+---
+title: "HW3"
+author: "Nikhil Soni"
+date: "10/03/2018"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+#I had significant discussions with Mr. Manan Shah a student of this course for Fall '18#
+
+#Please bear in mind that running the code for kmeans and kmedoids is very time consuming. Hence, I have included the results as is from the saved data[RData]. However, I have included the code.#
+
+```{r}
+load("HW3.RData")
+```
+
+
+####  Q1.1)
+
+```{r}
+# mnist loaders----
+load_mnist <- function() {
+  load_image_file <- function(filename) {
+    ret = list()
+    f = file(filename,'rb')
+    readBin(f,'integer',n=1,size=4,endian='big')
+    ret$n = readBin(f,'integer',n=1,size=4,endian='big')
+    nrow = readBin(f,'integer',n=1,size=4,endian='big')
+    ncol = readBin(f,'integer',n=1,size=4,endian='big')
+    x = readBin(f,'integer',n=ret$n*nrow*ncol,size=1,signed=F)
+    ret$x = matrix(x, ncol=nrow*ncol, byrow=T)
+    close(f)
+    ret
+  }
+  load_label_file <- function(filename) {
+    f = file(filename,'rb')
+    readBin(f,'integer',n=1,size=4,endian='big')
+    n = readBin(f,'integer',n=1,size=4,endian='big')
+    y = readBin(f,'integer',n=n,size=1,signed=F)
+    close(f)
+    y
+  }
+  train <<- load_image_file('mnist/train-images-idx3-ubyte')
+  test <<- load_image_file('mnist/t10k-images-idx3-ubyte')
+  
+  train$y <<- load_label_file('mnist/train-labels-idx1-ubyte')
+  test$y <<- load_label_file('mnist/t10k-labels-idx1-ubyte')  
+}
+show_digit <- function(arr784, col=gray(12:1/12), ...) {
+  image(matrix(arr784, nrow=28)[,28:1], col=col, ...)
+}
+
+# data----
+load_mnist()
+digits<-head(train[[2]], 1000)
+labels<-head(train[[3]], 1000)
+rm(train, test)
+
+dim(digits)
+length(labels)
+```
+
+####  Q1.2)
+
+```{r}
+my_kmeans<-function(data, k, N, seed=9)
+{
+  set.seed(seed)
+  store.param<-replicate(N, list) # this stores all the data for N initializations
+  for(outermost in 1:N)           # LOOP #1: outermost loop
+  {
+    centroid<-replicate(k, list)  # to store the centroids
+    k_loss<-list()                # to store the loss for each k-means iteration
+    store<-cbind(sample.int(k, dim(data)[1], replace=TRUE), data) # bind random cluster 
+                                                                  # init as a column 
+                                                                  # this helps in subsetting
+    total<-1                      # stopping criteria flag
+    ctr<-0                        # k-means iteration counter
+    while(total!=0)               # LOOP #2: run till convergence,
+                                  # no change in cluster assignments
+    {
+      for(i in 1:k)               # LOOP #2.1: mean recalculation
+      {
+        subset<-store[store[,1]==i,seq(2,dim(store)[2])] # Subset the large matrix for each K
+        if(!is.null(dim(subset)[1]) && dim(subset)[1]!=0){  # Check if subset is not null
+          centroid[[i]]<-colSums(subset)/dim(subset)[1]     # Centroid/means calculation 
+        }else{
+          centroid[[i]]<-vector(mode="numeric", length=length(seq(2,dim(store)[2]))) 
+        }
+        rm(subset)
+      }
+      previous<-store # Storing the current cluster assignment for comparison after reassignment
+      for(i in 1:dim(store)[1]) # LOOP #2.2: cluster reassignment, iterating over each observation
+      {
+        edist<-vector(mode="numeric", length=k) # A vector to store the distance of 
+                                                # each obs from each centroid/mean
+        for(j in 1:length(centroid))  # Iterating over each centroid.mean
+        {
+          sq<-(store[i,seq(2,dim(store)[2])]-centroid[[j]])**2 # Distance between the
+                                                               # centroid/mean to the
+                                                               # observation
+          edist[j]<-sum(sq) # Distance between the centroid/mean to the observation
+          rm(sq)
+        }
+        store[i,1]<-which.min(edist) # Reassigning cluster within minimum distance to the obs
+        rm(edist)
+      }
+      total<-sum(store[,1]-previous[,1]) # Calculating the change in cluster assignments
+      ctr<-ctr+1                         # Incrementing the k-means iteration counter
+      k_loss<-c(k_loss, loss(store))     # Loss for each k-means iteration
+    }
+    store.param[[outermost]]<-list(cluster.assignment=store, loss=loss(store),
+          centroid=centroid, k_loss=unlist(k_loss), iter=ctr) # Storing data from each
+                                                                # initialization
+  }
+  minimum_loss<-which.min(unlist(lapply(store.param, function(x) x[[2]]))) 
+  # Finding the iteration (from N initilizations) for the least loss
+  return(list(best=store.param[[minimum_loss]],data=store.param)) # returning the results
+}
+```
+
+
+##### (a), (b) and (c)
+
+```
+
+output                  # Output Structure 
+  best
+    cluster.assignment  # Best Cluster Assignment
+    loss                # Terminal Loss for the best assignment
+    centroid            # List of centroid/means vectors
+    k_loss              # Loss for each iteration of k-means for the best assignment init
+    iter                # Number of k-means iterations
+  data                  # list of data from each initialization
+    [[i]]               # i^th initialization
+      cluster.assignment
+      loss              # Terminal loss value for each initialization
+      centroid
+      k_loss
+      iter
+```
+
+#### Q1.3)
+
+```
+change<-1
+while(change!=0)
+{
+  cluster_assignments<-<Value>
+  
+  <Reassignments> # This includes mean recalculation
+  
+  new_cluster_assignments<-<Reassigned Values>
+
+  change = sum(new_cluster_assignments-cluster_assignments)
+}
+```
+
+Keep rechecking for the change in cluster assignments. When cluster assignments stop changing, the loop breaks and this is the stopping criteria. Since, the cluster assignments do not change therefore the loss doesnt change as well.
+
+\newpage
+
+#### Q1.4)
+
+#### For K=5
+
+```{r, fig.width=4, fig.height=6}
+# clustered.digits.k5<-my_kmeans(digits,5, 25) # Not running the code, time consuming
+plot_clustered_digits(clustered.digits.k5,3,2)
+```
+
+```{r, fig.width=4, fig.height=4}
+par(mfrow=c(1,1))
+y<-clustered.digits.k5[["best"]][["k_loss"]]
+x<-1:length(y)
+plot(x, log(y), main="Loss for K Iteration | K=5", xlab="Iterations", type="l",col="red")
+rm(x,y)
+```
+
+\newpage
+
+#### For K=10
+
+```{r, fig.width=8, fig.height=6}
+# clustered.digits.k10<-my_kmeans(digits,10, 25) # Not running the code, time consuming
+plot_clustered_digits(clustered.digits.k10,3,4)
+```
+
+```{r, fig.width=4, fig.height=4}
+par(mfrow=c(1,1))
+y<-clustered.digits.k10[["best"]][["k_loss"]]
+x<-1:length(y)
+plot(x, log(y), main="Loss for K Iteration | K=10", xlab="Iterations", type="l", col="red")
+rm(x,y)
+```
+
+\newpage
+
+#### For K=20
+
+```{r, fig.width=40, fig.height=50}
+# clustered.digits.k20<-my_kmeans(digits,20, 25) # Not running the code, time consuming
+plot_clustered_digits(clustered.digits.k20,5,4)
+```
+
+```{r, fig.width=4, fig.height=4}
+par(mfrow=c(1,1))
+y<-clustered.digits.k20[["best"]][["k_loss"]]
+x<-1:length(y)
+plot(x, log(y), main="Loss for K Iteration | K=20", xlab="Iterations", type="l", col="red")
+```
+
+\newpage
+
+#### Q1.5)
+
+```{r, message=FALSE}
+library(ggplot2)
+```
+
+
+##### For K=5
+
+```{r}
+tl<-unlist(lapply(clustered.digits.k5[["data"]], function(x) x[[2]]))
+init<-1:length(tl)
+df<-data.frame(init, tl)
+names(df)<-c("init", "tl")
+ggplot(df, aes(x=tl))+geom_density()
+rm(df, tl, init)
+```
+
+\newpage
+
+##### K=10
+
+```{r}
+tl<-unlist(lapply(clustered.digits.k10[["data"]], function(x) x[[2]]))
+init<-1:length(tl)
+df<-data.frame(init, tl)
+names(df)<-c("init", "tl")
+ggplot(df, aes(x=tl))+geom_density()
+rm(df, tl, init)
+```
+
+\newpage
+
+##### K=20
+
+```{r}
+tl<-unlist(lapply(clustered.digits.k20[["data"]], function(x) x[[2]]))
+init<-1:length(tl)
+df<-data.frame(init, tl)
+names(df)<-c("init", "tl")
+ggplot(df, aes(x=tl))+geom_density()
+rm(df, tl, init)
+```
+
+\newpage
+
+#### Q1.6)
+
+In k-means clustering, we want to partition the observations into K clusters such that the total within-cluster variation, summed over all the clusters K, is as small as possible. Hence, we want to solve the problem
+$$minimize_{c_1,.....,c_k} = {\sum_{k=1}^KW(C_k)}$$
+ 
+ 
+Here, the within-cluster variation is defined as:
+$$  W(C_k) = 1/|C_k|*\sum_{i,i' \in C_k}\sum_{j=1}^p(x_{ij} - x_{i'j})^2$$
+where $|C_k|$ denotes the number of observations in the kth cluster. We choose K which minimizes this loss function over N random initializations in order to get the globally optimum solution.
+We can use the elbow method for this purpose. For each cluster, we can calculate the total within-cluster sum of square and plot the curve of within-cluster sum of squares vs the number of clusters. The location of bend(knee) in the plot is generally considered as an indicator of the appropriate number of clusters.
+
+----
+
+\newpage
+
+#### Q1.7)
+
+```{r}
+get_prototype<-function(subset)
+{
+  dist_matrix<-as.matrix(dist(subset))      # Medoid calculation
+  dist_matrix_colsums<-colSums(dist_matrix) # Medoid calculation
+  k_min<-which.min(dist_matrix_colsums)     # Medoid calculation
+  return(subset[k_min,])                    # Medoid calculation
+}
+my_kmedoids<-function(data, k, N, seed=9)
+{
+  set.seed(seed)
+  store.param<-replicate(N, list) # this stores all the data for N initializations
+  for(outermost in 1:N)           # LOOP #1: outermost loopstore.param<-replicate(N, list)
+  {
+    medoids<-replicate(k, list) # to store the centroids
+    k_loss<-list()              # to store the loss for each k-means iteration
+    store<-cbind(sample.int(k, dim(data)[1], replace=TRUE), data) # bind random cluster
+                                                                  # init as a column 
+                                                                  # this helps in subsetting
+    total<-1                      # stopping criteria flag
+    ctr<-0                        # k-means iteration counter
+    while(total!=0)               # LOOP #2: run till convergence,
+                                  # no change in cluster assignments
+    {
+      for(i in 1:k)               # LOOP #2.1: medoid recalculation
+      {
+        subset<-store[store[,1]==i,seq(2,dim(store)[2])] # Subset the large matrix for each K
+        if(!is.null(dim(subset)[1]) && dim(subset)[1]!=0){ # Check if subset is not null
+          medoids[[i]]<-get_prototype(subset)              # Medoid calculation
+        }else{
+          medoids[[i]]<-vector(mode="numeric", length=length(seq(2,dim(store)[2]))) 
+        }
+        rm(subset)
+      }
+      previous<-store # Storing the current cluster assignment for comparison after reassignment
+      for(i in 1:dim(store)[1]) # LOOP #2.2: cluster reassignment, iterating over each observation
+      {
+        edist<-vector(mode="numeric", length=k) # A vector to store the distance of 
+        # each obs from each centroid/mean
+        for(j in 1:length(centroid))  # Iterating over each centroid.mean
+        {
+          sq<-(store[i,seq(2,dim(store)[2])]-centroid[[j]])**2 # Distance between the
+          # centroid/mean to the
+          # observation
+          edist[j]<-sum(sq) # Distance between the centroid/mean to the observation
+          rm(sq)
+        }
+        store[i,1]<-which.min(edist) # Reassigning cluster within minimum distance to the obs
+        rm(edist)
+      }
+      total<-sum(store[,1]-previous[,1]) # Calculating the change in cluster assignments
+      ctr<-ctr+1                         # Incrementing the k-means iteration counter
+      k_loss<-c(k_loss, loss(store))     # Loss for each k-means iteration
+    }
+    store.param[[outermost]]<-list(cluster.assignment=store, loss=loss(store), medoids=medoids,
+                                   k_loss=unlist(k_loss), iter=ctr) # Storing data from each
+                                                                    # initialization
+  }
+  minimum_loss<-which.min(unlist(lapply(store.param, function(x) x[[2]])))
+   # Finding the iteration (from N initilizations) for the least loss
+  return(list(best=store.param[[minimum_loss]],data=store.param)) # returning the results
+}
+```
+
+\newpage
+
+#### Q1.8)
+
+##Using 1000 digits##
+
+##### For K=5
+
+```{r, fig.width=4, fig.height=6}
+# clustered.digits.k5.medoids<-my_kmedoids(digits,5,25) # Not running, time consuming
+plot_clustered_digits(clustered.digits.k5.medoids,3,2)
+```
+
+```{r, fig.width=4, fig.height=4}
+par(mfrow=c(1,1))
+y<-clustered.digits.k5[["best"]][["k_loss"]]
+x<-1:length(y)
+y1<-clustered.digits.k5.medoids[["best"]][["k_loss"]]
+x1<-1:length(y1)
+plot(x, log(y), type="l", col="red", main="Loss Comparison for Means and Medoids| K=5", xlab="Iterations")
+lines(x1,log(y1), type="l", col="blue")
+legend("topright", pch=c(20,20), col = c("red", "blue"), legend = c("K-Means", "K-Medoids"))
+rm(x,y,x1,y1)
+```
+
+\newpage
+
+##### For K=10
+```{r, fig.width=8, fig.height=6}
+# clustered.digits.k10.medoids<-my_kmedoids(digits,10,25) # Not running, time consuming
+plot_clustered_digits(clustered.digits.k10.medoids,3,4)
+```
+
+```{r, fig.width=4, fig.height=4}
+y<-clustered.digits.k10[["best"]][["k_loss"]]
+x<-1:length(y)
+y1<-clustered.digits.k10.medoids[["best"]][["k_loss"]]
+x1<-1:length(y1)
+plot(x, log(y), type="l", col="red", main="Loss Comparison for Means and Medoids| K=10", xlab="Iterations")
+lines(x1,log(y1), type="l", col="blue")
+legend("topright", pch=c(20,20), col = c("red", "blue"), legend = c("K-Means", "K-Medoids"))
+rm(x,y,x1,y1)
+```
+
+\newpage
+
+##### For K=20
+```{r, fig.width=40, fig.height=50}
+# clustered.digits.k20.medoids<-my_kmedoids(digits,20,25) # Not running, time consuming
+plot_clustered_digits(clustered.digits.k20.medoids,5,4)
+```
+
+```{r, fig.width=4, fig.height=4}
+par(mfrow=c(1,1))
+y<-clustered.digits.k20[["best"]][["k_loss"]]
+x<-1:length(y)
+y1<-clustered.digits.k20.medoids[["best"]][["k_loss"]]
+x1<-1:length(y1)
+plot(x, log(y), type="l", col="red", main="Loss Comparison for Means and Medoids| K=20", xlab="Iterations")
+lines(x1,log(y1), type="l", col="blue")
+legend("topright", pch=c(20,20), col = c("red", "blue"), legend = c("K-Means", "K-Medoids"))
+rm(x,y,x1,y1)
+```
+
+The quality of the cluster prototypes are better because these prototypes are from the data itself and not an aggregate of values.
+
