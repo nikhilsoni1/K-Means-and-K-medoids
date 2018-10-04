@@ -407,3 +407,5 @@ rm(x,y,x1,y1)
 
 The quality of the cluster prototypes are better because these prototypes are from the data itself and not an aggregate of values.
 
+Also, the loss is more for K-medoids than K-means as evident from the overlayed comparison graphs.
+

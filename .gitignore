@@ -5,3 +5,4 @@ mnist/
 plots/
 .DS_Store
 Icon*
+.Rhistory
